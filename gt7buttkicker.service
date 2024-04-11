@@ -1,0 +1,11 @@
+[Unit]
+Description=GT7 Buttkicker
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/home/matze/build/gt7buttkicker/gt7buttkicker.arm.bin
+
+[Install]
+WantedBy=multi-user.target
