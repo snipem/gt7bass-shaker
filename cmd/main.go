@@ -3,29 +3,42 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/go-audio/audio"
 	"github.com/go-audio/generator"
 	"github.com/go-audio/transforms"
 	"github.com/gordonklaus/portaudio"
+	gt7 "github.com/snipem/go-gt7-telemetry/lib"
 	"github.com/snipem/gt7buttkicker/lib"
 	"log"
+	"os"
 )
 
 func main() {
 
-	//gt7c := gt7.NewGT7Communication("255.255.255.255")
-	//go gt7c.Run()
+	var inputDumpFile string
+	flag.StringVar(&inputDumpFile, "input-dump-file", "", "Specifies the input dump file, will use PlayStation if not set")
 
-	gt7c := lib.NewGT7Dump("dump.csv")
-	go gt7c.Run()
+	flag.Parse() // parse the flags from the command line, see https://golang.org/pkg/flag/i
+	fmt.Println(os.Args)
 
-	Play(&gt7c)
+	if inputDumpFile == "" {
+		fmt.Println("Using PlayStation as telemetry input")
+		gt7c := gt7.NewGT7Communication("255.255.255.255")
+		go gt7c.Run()
+		Play(&gt7c.LastData)
+	} else {
+		fmt.Println("Using dump file as telemetry input")
+		gt7c := lib.NewGT7Dump(inputDumpFile)
+		go gt7c.Run()
+		Play(&gt7c.LastData)
+	}
 
 	fmt.Println("done")
 }
 
-func Play(gt7c *lib.GT7Dump) {
+func Play(ld *gt7.GTData) {
 	currentNote := 440.0
 
 	rpmGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
@@ -59,18 +72,18 @@ func Play(gt7c *lib.GT7Dump) {
 		oldPackageId := int32(-1)
 
 		for {
-			if gt7c.LastData.PackageID != oldPackageId {
+			if ld.PackageID != oldPackageId {
 				fmt.Println(oldPackageId)
 
 				//if gt7c.LastData.Brake > 0 {
 				//	fmt.Println("Brake")
-				brakeGenerator.SetFreq(float64(gt7c.LastData.Brake + 32))
+				brakeGenerator.SetFreq(float64(ld.Brake + 32))
 				//} else {
 				//	fmt.Println("RPM")
-				rpmGenerator.SetFreq(float64(gt7c.LastData.RPM) / 28)
+				rpmGenerator.SetFreq(float64(ld.RPM) / 28)
 				//}
 			}
-			oldPackageId = gt7c.LastData.PackageID
+			oldPackageId = ld.PackageID
 		}
 	}()
 
@@ -120,11 +133,9 @@ func Play(gt7c *lib.GT7Dump) {
 		//bufout := mix(buf, buf2)
 
 		// chose buffer
-		if gt7c.LastData.Brake > 0 {
-			print("Brake")
+		if ld.Brake > 0 {
 			buf = brakebuf
 		} else {
-			print("RPM")
 			buf = rpmbuf
 		}
 
