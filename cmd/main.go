@@ -132,7 +132,7 @@ func Play(ld *gt7.GTData) {
 
 		//bufout := mix(buf, buf2)
 
-		if ld.InRace && !ld.IsPaused {
+		if ld.InRace && ld.IsPaused {
 			currentVol = 0
 		} else {
 			currentVol = 1
