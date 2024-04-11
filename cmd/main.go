@@ -47,6 +47,9 @@ func Play(ld *gt7.GTData) {
 	brakeGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
 	brakeGenerator.Amplitude = 1
 
+	tcsGenerator := generator.NewOsc(generator.WaveTriangle, currentNote, audio.FormatMono44100.SampleRate)
+	tcsGenerator.Amplitude = 1
+
 	gainControl := 0.0
 	currentVol := float64(1)
 
@@ -58,6 +61,11 @@ func Play(ld *gt7.GTData) {
 	}
 
 	brakebuf := &audio.FloatBuffer{
+		Data:   make([]float64, bufferSize),
+		Format: audio.FormatMono44100,
+	}
+
+	tcsBuf := &audio.FloatBuffer{
 		Data:   make([]float64, bufferSize),
 		Format: audio.FormatMono44100,
 	}
@@ -77,10 +85,12 @@ func Play(ld *gt7.GTData) {
 
 				//if gt7c.LastData.Brake > 0 {
 				//	fmt.Println("Brake")
-				brakeGenerator.SetFreq(float64(ld.Brake + 32))
+				brakeGenerator.SetFreq(float64(100 - ld.Brake + 32))
 				//} else {
 				//	fmt.Println("RPM")
 				rpmGenerator.SetFreq(float64(ld.RPM) / 28)
+
+				tcsGenerator.SetFreq(float64(60))
 				//}
 			}
 			oldPackageId = ld.PackageID
@@ -116,6 +126,9 @@ func Play(ld *gt7.GTData) {
 		if err := brakeGenerator.Fill(brakebuf); err != nil {
 			log.Printf("error filling up the buffer")
 		}
+		if err := tcsGenerator.Fill(tcsBuf); err != nil {
+			log.Printf("error filling up the buffer")
+		}
 		// apply vol control if needed (applied as a transform instead of a control
 		// on the osc)
 		if gainControl != 0 {
@@ -138,11 +151,18 @@ func Play(ld *gt7.GTData) {
 			currentVol = 1
 		}
 
+		// block all effects
+		currentVol = 0
+
 		// chose buffer
-		if ld.Brake > 0 {
+		if ld.IsTCSEngaged {
+			currentVol = 1
+			buf = tcsBuf
+		} else if ld.Brake > 0 {
 			buf = brakebuf
 		} else {
-			buf = rpmbuf
+			//buf = rpmbuf
+			currentVol = 0
 		}
 
 		transforms.Gain(buf, currentVol)
