@@ -5,6 +5,13 @@ build_on_raspberrypi:
 build_rasp_on_mac:
 	CGO_ENABLED=1 GOOS=linux GOARCH=arm go build -o gt7buttkicker.arm.bin cmd/main.go
 
+install_service:
+	sudo cp gt7buttkicker.service /etc/systemd/system/
+	sudo systemctl daemon-reload
+	systemctl enable gt7buttkicker.service
+	systemctl start gt7buttkicker.service
+
+
 deps:
 	brew install arm-linux-gnueabihf-binutils
 

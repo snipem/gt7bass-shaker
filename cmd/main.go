@@ -132,6 +132,12 @@ func Play(ld *gt7.GTData) {
 
 		//bufout := mix(buf, buf2)
 
+		if ld.InRace && !ld.IsPaused {
+			currentVol = 0
+		} else {
+			currentVol = 1
+		}
+
 		// chose buffer
 		if ld.Brake > 0 {
 			buf = brakebuf
