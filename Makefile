@@ -1,3 +1,7 @@
+build_on_raspberrypi:
+	git pull
+	CGO_ENABLED=1 GOOS=linux GOARCH=arm time go build -ldflags "-s -w" -o gt7buttkicker.arm.bin cmd/main.go
+
 build_rasp_on_mac:
 	CGO_ENABLED=1 GOOS=linux GOARCH=arm go build -o gt7buttkicker.arm.bin cmd/main.go
 
@@ -7,10 +11,6 @@ deps:
 deps_on_rasbperrypi:
 	apt-get update
 	apt-get install git pkg-config portaudio19-dev
-
-build_on_raspberrypi:
-	git pull
-	CGO_ENABLED=1 GOOS=linux GOARCH=arm time go build -ldflags "-s -w" -o gt7buttkicker.arm.bin cmd/main.go
 
 build_using_docker:
 	docker run -it --rm \
