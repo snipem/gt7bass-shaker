@@ -13,7 +13,7 @@ install_service:
 	systemctl start gt7buttkicker.service
 
 restart_service:
-	systemctl restart gt7buttkicker.service
+	sudo systemctl restart gt7buttkicker.service
 
 deps:
 	brew install arm-linux-gnueabihf-binutils

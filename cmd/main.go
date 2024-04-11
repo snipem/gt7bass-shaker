@@ -52,12 +52,13 @@ type Channel struct {
 }
 
 type Mix struct {
-	Channels     []*Channel
-	LastData     *gt7.GTData
-	buf          *audio.FloatBuffer
-	TCSChannel   *Channel
-	RPMChannel   *Channel
-	BrakeChannel *Channel
+	Channels        []*Channel
+	LastData        *gt7.GTData
+	buf             *audio.FloatBuffer
+	TCSChannel      *Channel
+	RPMChannel      *Channel
+	BrakeChannel    *Channel
+	TireslipChannel *Channel
 }
 
 func (mix *Mix) NewChannel(sine generator.WaveType, channelType string) *Channel {
@@ -76,6 +77,8 @@ func (mix *Mix) NewChannel(sine generator.WaveType, channelType string) *Channel
 		mix.BrakeChannel = &c
 	case "TCS":
 		mix.TCSChannel = &c
+	case C_TIRESLIP:
+		mix.TireslipChannel = &c
 	}
 
 	return &c
@@ -97,9 +100,14 @@ func (c *Channel) SynthesizeTelemetry() {
 		c.Generator.SetFreq(float64(100 - c.mix.LastData.Brake + 32))
 	case "TCS":
 		c.Generator.SetFreq(float64(60))
+	case C_TIRESLIP:
+		avgTireslip := getAvgTireSlip(c.mix.LastData)
+		c.Generator.SetFreq(float64(100) * float64(avgTireslip))
 	}
 
 }
+
+const C_TIRESLIP = "TIRESLIP"
 
 func Play(ld *gt7.GTData, debug bool) {
 	mix := NewMix(ld)
@@ -107,6 +115,7 @@ func Play(ld *gt7.GTData, debug bool) {
 	mix.NewChannel(generator.WaveSine, "RPM")
 	mix.NewChannel(generator.WaveSine, "Brake")
 	mix.NewChannel(generator.WaveSine, "TCS")
+	mix.NewChannel(generator.WaveSqr, C_TIRESLIP)
 
 	currentVol := float64(1)
 
@@ -190,7 +199,11 @@ func NewMix(ld *gt7.GTData) Mix {
 
 func (mix *Mix) GetMixedBuffer(ld *gt7.GTData, currentVol float64) *audio.FloatBuffer {
 	// chose buffer
-	if ld.IsTCSEngaged {
+	avgTireslip := getAvgTireSlip(ld)
+	if avgTireslip > 1 {
+		currentVol = 1
+		mix.buf = mix.TireslipChannel.Buffer
+	} else if ld.IsTCSEngaged {
 		currentVol = 1
 		mix.buf = mix.TCSChannel.Buffer
 	} else if ld.Brake > 0 {
@@ -203,6 +216,11 @@ func (mix *Mix) GetMixedBuffer(ld *gt7.GTData, currentVol float64) *audio.FloatB
 
 	transforms.Gain(mix.buf, currentVol)
 	return mix.buf
+}
+
+func getAvgTireSlip(ld *gt7.GTData) float32 {
+	avgTireslip := (ld.TyreSlipRatioFL + ld.TyreSlipRatioFR + ld.TyreSlipRatioRL + ld.TyreSlipRatioRR) / 4
+	return avgTireslip
 }
 
 func getBuffer(bufferSize int) *audio.FloatBuffer {
