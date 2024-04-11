@@ -38,42 +38,105 @@ func main() {
 	fmt.Println("done")
 }
 
+type Channel struct {
+	Generator *generator.Osc
+	Buffer    *audio.FloatBuffer
+	Type      string
+	mix       *Mix
+}
+
+type Mix struct {
+	Channels     []*Channel
+	LastData     *gt7.GTData
+	buf          *audio.FloatBuffer
+	TCSChannel   *Channel
+	RPMChannel   *Channel
+	BrakeChannel *Channel
+}
+
+func (mix *Mix) NewChannel(sine generator.WaveType, channelType string) *Channel {
+	c := Channel{}
+	c.Type = channelType
+	c.Generator = generator.NewOsc(sine, 440, audio.FormatMono44100.SampleRate)
+	c.Generator.Amplitude = 1
+	c.Buffer = getBuffer(512)
+	c.mix = mix
+	mix.Channels = append(mix.Channels, &c)
+
+	switch channelType {
+	case "RPM":
+		mix.RPMChannel = &c
+	case "Brake":
+		mix.BrakeChannel = &c
+	case "TCS":
+		mix.TCSChannel = &c
+	}
+
+	return &c
+}
+
+func (c *Channel) PopulateBuffer() {
+	// populate the out buffer
+	if err := c.Generator.Fill(c.Buffer); err != nil {
+		log.Printf("error filling up the buffer")
+	}
+}
+
+func (c *Channel) SynthesizeTelemetry() {
+
+	switch c.Type {
+	case "RPM":
+		c.Generator.SetFreq(float64(c.mix.LastData.RPM) / 28)
+	case "Brake":
+		c.Generator.SetFreq(float64(100 - c.mix.LastData.Brake + 32))
+	case "TCS":
+		c.Generator.SetFreq(float64(60))
+	}
+
+}
+
 func Play(ld *gt7.GTData) {
-	currentNote := 440.0
+	mix := NewMix(ld)
 
-	rpmGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
-	rpmGenerator.Amplitude = 1
+	//c1 := NewChannel(generator.WaveSine)
 
-	brakeGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
-	brakeGenerator.Amplitude = 1
+	//currentNote := 440.0
+	//
+	//rpmGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
+	//rpmGenerator.Amplitude = 1
+	//
+	//brakeGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
+	//brakeGenerator.Amplitude = 1
+	//
+	//tcsGenerator := generator.NewOsc(generator.WaveTriangle, currentNote, audio.FormatMono44100.SampleRate)
+	//tcsGenerator.Amplitude = 1
 
-	tcsGenerator := generator.NewOsc(generator.WaveTriangle, currentNote, audio.FormatMono44100.SampleRate)
-	tcsGenerator.Amplitude = 1
+	mix.NewChannel(generator.WaveSine, "RPM")
+	mix.NewChannel(generator.WaveSine, "Brake")
+	mix.NewChannel(generator.WaveSine, "TCS")
 
 	gainControl := 0.0
 	currentVol := float64(1)
 
 	bufferSize := 512
 
-	rpmbuf := &audio.FloatBuffer{
-		Data:   make([]float64, bufferSize),
-		Format: audio.FormatMono44100,
-	}
-
-	brakebuf := &audio.FloatBuffer{
-		Data:   make([]float64, bufferSize),
-		Format: audio.FormatMono44100,
-	}
-
-	tcsBuf := &audio.FloatBuffer{
-		Data:   make([]float64, bufferSize),
-		Format: audio.FormatMono44100,
-	}
-
-	buf := &audio.FloatBuffer{
-		Data:   make([]float64, bufferSize),
-		Format: audio.FormatMono44100,
-	}
+	//rpmbuf := getBuffer(bufferSize)
+	//brakeBuf := getBuffer(bufferSize)
+	//
+	//brakebuf := &audio.FloatBuffer{
+	//	Data:   make([]float64, bufferSize),
+	//	Format: audio.FormatMono44100,
+	//}
+	//
+	//tcsBuf := &audio.FloatBuffer{
+	//	Data:   make([]float64, bufferSize),
+	//	Format: audio.FormatMono44100,
+	//}
+	//
+	//buf := &audio.FloatBuffer{
+	//	Data:   make([]float64, bufferSize),
+	//	Format: audio.FormatMono44100,
+	//}
 
 	go func() {
 		// track gt7
@@ -83,14 +146,18 @@ func Play(ld *gt7.GTData) {
 			if ld.PackageID != oldPackageId {
 				fmt.Println(oldPackageId)
 
+				for i := 0; i < len(mix.Channels); i++ {
+					mix.Channels[i].SynthesizeTelemetry()
+				}
+
 				//if gt7c.LastData.Brake > 0 {
 				//	fmt.Println("Brake")
-				brakeGenerator.SetFreq(float64(100 - ld.Brake + 32))
+				//brakeChannel.Generator.SetFreq(float64(100 - ld.Brake + 32))
 				//} else {
 				//	fmt.Println("RPM")
-				rpmGenerator.SetFreq(float64(ld.RPM) / 28)
+				//rpmChannel.Generator.SetFreq(float64(ld.RPM) / 28)
 
-				tcsGenerator.SetFreq(float64(60))
+				//tcsChannel.Generator.SetFreq(float64(60))
 				//}
 			}
 			oldPackageId = ld.PackageID
@@ -120,15 +187,20 @@ func Play(ld *gt7.GTData) {
 		//transform.NormalizeMax()
 
 		// populate the out buffer
-		if err := rpmGenerator.Fill(rpmbuf); err != nil {
-			log.Printf("error filling up the buffer")
+
+		for i := 0; i < len(mix.Channels); i++ {
+			mix.Channels[i].PopulateBuffer()
 		}
-		if err := brakeGenerator.Fill(brakebuf); err != nil {
-			log.Printf("error filling up the buffer")
-		}
-		if err := tcsGenerator.Fill(tcsBuf); err != nil {
-			log.Printf("error filling up the buffer")
-		}
+
+		//if err := rpmGenerator.Fill(rpmbuf); err != nil {
+		//	log.Printf("error filling up the buffer")
+		//}
+		//if err := brakeGenerator.Fill(brakebuf); err != nil {
+		//	log.Printf("error filling up the buffer")
+		//}
+		//if err := tcsGenerator.Fill(tcsBuf); err != nil {
+		//	log.Printf("error filling up the buffer")
+		//}
 		// apply vol control if needed (applied as a transform instead of a control
 		// on the osc)
 		if gainControl != 0 {
@@ -154,18 +226,7 @@ func Play(ld *gt7.GTData) {
 		// block all effects
 		currentVol = 0
 
-		// chose buffer
-		if ld.IsTCSEngaged {
-			currentVol = 1
-			buf = tcsBuf
-		} else if ld.Brake > 0 {
-			buf = brakebuf
-		} else {
-			//buf = rpmbuf
-			currentVol = 0
-		}
-
-		transforms.Gain(buf, currentVol)
+		buf := mix.GetMixedBuffer(ld, currentVol)
 
 		f64ToF32Copy(out, buf.Data)
 
@@ -173,7 +234,41 @@ func Play(ld *gt7.GTData) {
 		if err := stream.Write(); err != nil {
 			log.Printf("error writing to stream : %v\n", err)
 		}
+
+		//time.Sleep(16 * time.Millisecond)
 	}
+}
+
+func NewMix(ld *gt7.GTData) Mix {
+	mix := Mix{}
+	mix.LastData = ld
+	mix.buf = getBuffer(512)
+	return mix
+}
+
+func (mix *Mix) GetMixedBuffer(ld *gt7.GTData, currentVol float64) *audio.FloatBuffer {
+	// chose buffer
+	if ld.IsTCSEngaged {
+		currentVol = 1
+		mix.buf = mix.TCSChannel.Buffer
+	} else if ld.Brake > 0 {
+		currentVol = 1
+		mix.buf = mix.BrakeChannel.Buffer
+	} else {
+		mix.buf = mix.RPMChannel.Buffer
+		currentVol = 1.5
+	}
+
+	transforms.Gain(mix.buf, currentVol)
+	return mix.buf
+}
+
+func getBuffer(bufferSize int) *audio.FloatBuffer {
+	rpmbuf := &audio.FloatBuffer{
+		Data:   make([]float64, bufferSize),
+		Format: audio.FormatMono44100,
+	}
+	return rpmbuf
 }
 
 func mix(buf *audio.FloatBuffer, buf2 *audio.FloatBuffer) (mixBuf *audio.FloatBuffer) {
