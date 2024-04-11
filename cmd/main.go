@@ -15,10 +15,16 @@ import (
 	"os"
 )
 
+const C_RPM = "RPM"
+const C_BRAKE = "BRAKE"
+const C_TCS = "TCS"
+
 func main() {
 
 	var inputDumpFile string
+	var debug bool
 	flag.StringVar(&inputDumpFile, "input-dump-file", "", "Specifies the input dump file, will use PlayStation if not set")
+	flag.BoolVar(&debug, "debug", false, "Print debug messages")
 
 	flag.Parse() // parse the flags from the command line, see https://golang.org/pkg/flag/i
 	fmt.Println(os.Args)
@@ -27,12 +33,12 @@ func main() {
 		fmt.Println("Using PlayStation as telemetry input")
 		gt7c := gt7.NewGT7Communication("255.255.255.255")
 		go gt7c.Run()
-		Play(&gt7c.LastData)
+		Play(&gt7c.LastData, debug)
 	} else {
 		fmt.Println("Using dump file as telemetry input")
 		gt7c := lib.NewGT7Dump(inputDumpFile)
 		go gt7c.Run()
-		Play(&gt7c.LastData)
+		Play(&gt7c.LastData, debug)
 	}
 
 	fmt.Println("done")
@@ -95,48 +101,16 @@ func (c *Channel) SynthesizeTelemetry() {
 
 }
 
-func Play(ld *gt7.GTData) {
+func Play(ld *gt7.GTData, debug bool) {
 	mix := NewMix(ld)
-
-	//c1 := NewChannel(generator.WaveSine)
-
-	//currentNote := 440.0
-	//
-	//rpmGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
-	//rpmGenerator.Amplitude = 1
-	//
-	//brakeGenerator := generator.NewOsc(generator.WaveSine, currentNote, audio.FormatMono44100.SampleRate)
-	//brakeGenerator.Amplitude = 1
-	//
-	//tcsGenerator := generator.NewOsc(generator.WaveTriangle, currentNote, audio.FormatMono44100.SampleRate)
-	//tcsGenerator.Amplitude = 1
 
 	mix.NewChannel(generator.WaveSine, "RPM")
 	mix.NewChannel(generator.WaveSine, "Brake")
 	mix.NewChannel(generator.WaveSine, "TCS")
 
-	gainControl := 0.0
 	currentVol := float64(1)
 
 	bufferSize := 512
-
-	//rpmbuf := getBuffer(bufferSize)
-	//brakeBuf := getBuffer(bufferSize)
-	//
-	//brakebuf := &audio.FloatBuffer{
-	//	Data:   make([]float64, bufferSize),
-	//	Format: audio.FormatMono44100,
-	//}
-	//
-	//tcsBuf := &audio.FloatBuffer{
-	//	Data:   make([]float64, bufferSize),
-	//	Format: audio.FormatMono44100,
-	//}
-	//
-	//buf := &audio.FloatBuffer{
-	//	Data:   make([]float64, bufferSize),
-	//	Format: audio.FormatMono44100,
-	//}
 
 	go func() {
 		// track gt7
@@ -144,30 +118,17 @@ func Play(ld *gt7.GTData) {
 
 		for {
 			if ld.PackageID != oldPackageId {
-				fmt.Println(oldPackageId)
-
+				if debug {
+					fmt.Println(oldPackageId)
+				}
 				for i := 0; i < len(mix.Channels); i++ {
 					mix.Channels[i].SynthesizeTelemetry()
 				}
-
-				//if gt7c.LastData.Brake > 0 {
-				//	fmt.Println("Brake")
-				//brakeChannel.Generator.SetFreq(float64(100 - ld.Brake + 32))
-				//} else {
-				//	fmt.Println("RPM")
-				//rpmChannel.Generator.SetFreq(float64(ld.RPM) / 28)
-
-				//tcsChannel.Generator.SetFreq(float64(60))
-				//}
 			}
 			oldPackageId = ld.PackageID
 		}
 	}()
 
-	//buf2 := &audio.FloatBuffer{
-	//	Data:   make([]float64, bufferSize),
-	//	Format: audio.FormatMono44100,
-	//}
 	// Audio output
 	portaudio.Initialize()
 	defer portaudio.Terminate()
@@ -184,36 +145,22 @@ func Play(ld *gt7.GTData) {
 	defer stream.Stop()
 	for {
 
-		//transform.NormalizeMax()
-
 		// populate the out buffer
-
 		for i := 0; i < len(mix.Channels); i++ {
 			mix.Channels[i].PopulateBuffer()
 		}
 
-		//if err := rpmGenerator.Fill(rpmbuf); err != nil {
-		//	log.Printf("error filling up the buffer")
+		//if gainControl != 0 {
+		//	currentVol += gainControl
+		//	if currentVol < 0.1 {
+		//		currentVol = 0
+		//	}
+		//	if currentVol > 6 {
+		//		currentVol = 6
+		//	}
+		//	fmt.Printf("new vol %f.2", currentVol)
+		//	gainControl = 0
 		//}
-		//if err := brakeGenerator.Fill(brakebuf); err != nil {
-		//	log.Printf("error filling up the buffer")
-		//}
-		//if err := tcsGenerator.Fill(tcsBuf); err != nil {
-		//	log.Printf("error filling up the buffer")
-		//}
-		// apply vol control if needed (applied as a transform instead of a control
-		// on the osc)
-		if gainControl != 0 {
-			currentVol += gainControl
-			if currentVol < 0.1 {
-				currentVol = 0
-			}
-			if currentVol > 6 {
-				currentVol = 6
-			}
-			fmt.Printf("new vol %f.2", currentVol)
-			gainControl = 0
-		}
 
 		//bufout := mix(buf, buf2)
 
@@ -223,9 +170,6 @@ func Play(ld *gt7.GTData) {
 			currentVol = 1
 		}
 
-		// block all effects
-		currentVol = 0
-
 		buf := mix.GetMixedBuffer(ld, currentVol)
 
 		f64ToF32Copy(out, buf.Data)
@@ -234,8 +178,6 @@ func Play(ld *gt7.GTData) {
 		if err := stream.Write(); err != nil {
 			log.Printf("error writing to stream : %v\n", err)
 		}
-
-		//time.Sleep(16 * time.Millisecond)
 	}
 }
 
@@ -284,11 +226,6 @@ func mix(buf *audio.FloatBuffer, buf2 *audio.FloatBuffer) (mixBuf *audio.FloatBu
 
 	transforms.NormalizeMax(mixBuf)
 	return mixBuf
-}
-
-func switchNote(data float32, osc *generator.Osc) {
-	currentNote := float64(data / 28)
-	osc.SetFreq(currentNote)
 }
 
 // portaudio doesn't support float64 so we need to copy our data over to the
