@@ -1,11 +1,11 @@
-build_on_raspberrypi:
-	git pull
-	CGO_ENABLED=1 GOOS=linux GOARCH=arm go build -ldflags "-s -w" -o gt7buttkicker.arm.bin cmd/main.go
-	make restart_service
-
 build_on_raspberrypi_beep:
 	git pull
 	CGO_ENABLED=1 GOOS=linux GOARCH=arm go build -ldflags "-s -w" -o gt7buttkicker.arm.bin cmd/beep/main.go
+	make restart_service
+
+build_on_raspberrypi_goaudio:
+	git pull
+	CGO_ENABLED=1 GOOS=linux GOARCH=arm go build -ldflags "-s -w" -o gt7buttkicker.arm.bin cmd/main.go
 	make restart_service
 
 build_rasp_on_mac:
@@ -24,7 +24,7 @@ deps:
 	brew install arm-linux-gnueabihf-binutils
 
 wavefiles:
-	wget http://cd.textfiles.com/sbsw/BEEPCHMS/KLAK.WAV -O wav/knock.wav
+	wget http://cd.textfiles.com/sbsw/BEEPCHMS/KLAK.WAV -O cmd/beep/wav/knock.wav
 
 deps_on_rasbperrypi:
 	apt-get update
