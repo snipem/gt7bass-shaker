@@ -15,11 +15,11 @@ import (
 	"github.com/gopxl/beep/speaker"
 )
 
-//go:embed wav/knock.wav
+//go:embed wav/knock_short.wav
 var embedFile embed.FS
 
 func shift() {
-	fwav, err := embedFile.Open("wav/knock.wav")
+	fwav, err := embedFile.Open("wav/knock_short.wav")
 	if err != nil {
 		log.Fatal(err)
 	}

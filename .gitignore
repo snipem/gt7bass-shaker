@@ -1,1 +1,3 @@
 .idea
+cmd/beep/wav/knock_short.wav
+cmd/beep/wav/knock.wav
