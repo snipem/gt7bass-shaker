@@ -3,8 +3,6 @@ package main
 import (
 	"embed"
 	"fmt"
-	"github.com/gopxl/beep"
-	"github.com/gopxl/beep/effects"
 	"github.com/gopxl/beep/wav"
 	gt7 "github.com/snipem/go-gt7-telemetry/lib"
 	"github.com/snipem/gt7tools/lib/dump"
@@ -12,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/gopxl/beep"
+	"github.com/gopxl/beep/effects"
 	"github.com/gopxl/beep/speaker"
 )
 
@@ -19,12 +19,6 @@ import (
 var embedFile embed.FS
 
 func shift() {
-}
-
-func main() {
-
-	gt7c := gt7.NewGT7Communication("255.255.255.255")
-
 	fwav, err := embedFile.Open("wav/knock_short.wav")
 	if err != nil {
 		log.Fatal(err)
@@ -33,10 +27,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-	if err != nil {
-		log.Fatal(err)
-	}
+	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 	ctrl := &beep.Ctrl{Streamer: beep.Loop(1, streamer), Paused: false}
 	volume := &effects.Volume{
 		Streamer: ctrl,
@@ -45,6 +36,12 @@ func main() {
 		Silent:   false,
 	}
 	speedy := beep.ResampleRatio(4, 1, volume)
+	speaker.Play(speedy)
+}
+
+func main() {
+
+	gt7c := gt7.NewGT7Communication("255.255.255.255")
 
 	dumpFilePath := ""
 	if len(os.Args) > 1 {
@@ -109,7 +106,7 @@ func main() {
 				speaker.Lock()
 				//ctrl.Paused = !ctrl.Paused
 				fmt.Printf("%d: knock %d -> %d\n", gt7c.LastData.PackageID, oldGear, gt7c.LastData.CurrentGear)
-				go speaker.Play(speedy)
+				go shift()
 				//volume.Volume += 0.5
 				//speedy.SetRatio(speedy.Ratio() + 0.1)
 				speaker.Unlock()
