@@ -33,7 +33,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	err = speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	if err != nil {
+		log.Fatal(err)
+	}
 	ctrl := &beep.Ctrl{Streamer: beep.Loop(1, streamer), Paused: false}
 	volume := &effects.Volume{
 		Streamer: ctrl,
@@ -106,7 +109,7 @@ func main() {
 				speaker.Lock()
 				//ctrl.Paused = !ctrl.Paused
 				fmt.Printf("%d: knock %d -> %d\n", gt7c.LastData.PackageID, oldGear, gt7c.LastData.CurrentGear)
-				speaker.Play(speedy)
+				go speaker.Play(speedy)
 				//volume.Volume += 0.5
 				//speedy.SetRatio(speedy.Ratio() + 0.1)
 				speaker.Unlock()
