@@ -10,7 +10,6 @@ import (
 	"github.com/go-audio/transforms"
 	"github.com/gordonklaus/portaudio"
 	gt7 "github.com/snipem/go-gt7-telemetry/lib"
-	"github.com/snipem/gt7buttkicker/lib"
 	"log"
 	"os"
 )
@@ -35,10 +34,10 @@ func main() {
 		go gt7c.Run()
 		Play(&gt7c.LastData, debug)
 	} else {
-		fmt.Println("Using dump file as telemetry input")
-		gt7c := lib.NewGT7Dump(inputDumpFile)
-		go gt7c.Run()
-		Play(&gt7c.LastData, debug)
+		//fmt.Println("Using dump file as telemetry input")
+		//gt7c := lib.NewGT7Dump(inputDumpFile)
+		//go gt7c.Run()
+		//Play(&gt7c.LastData, debug)
 	}
 
 	fmt.Println("done")
@@ -115,7 +114,7 @@ func Play(ld *gt7.GTData, debug bool) {
 	mix.NewChannel(generator.WaveSine, "RPM")
 	mix.NewChannel(generator.WaveSine, "Brake")
 	mix.NewChannel(generator.WaveSine, "TCS")
-	mix.NewChannel(generator.WaveSqr, C_TIRESLIP)
+	mix.NewChannel(generator.WaveSaw, C_TIRESLIP)
 
 	currentVol := float64(1)
 

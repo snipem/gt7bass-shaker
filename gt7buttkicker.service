@@ -9,3 +9,5 @@ ExecStart=/home/matze/build/gt7buttkicker/gt7buttkicker.arm.bin
 
 [Install]
 WantedBy=multi-user.target
+
+# TODO Run as user
